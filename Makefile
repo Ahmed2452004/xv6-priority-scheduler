@@ -194,11 +194,10 @@ UPROGS=\
     	$U/_wc\
 	$U/_zombie\
 	$U/_logstress\
-	$U/_labtask6\
 	$U/_labtask\
 	$U/_forphan\
 	$U/_dorphan\
-
+        $U/_testpriority\
 
 
 
