@@ -6,6 +6,7 @@ int
 main(int argc, char *argv[])
 {
   int pid;
+  int priorities[5] = {1, 2, 3, 4, 5};
 
   printf("Priority scheduler test started\n");
 
@@ -18,15 +19,17 @@ main(int argc, char *argv[])
     }
 
     if(pid == 0){
-      printf("Child %d started, pid=%d\n", i, getpid());
+      setpriority(getpid(), priorities[i]);
+
+      printf("Child %d started pid=%d priority=%d\n", i, getpid(), priorities[i]);
 
       for(volatile int j = 0; j < 100000000; j++){
         if(j % 20000000 == 0){
-          printf("Child %d pid=%d running\n", i, getpid());
+          printf("Child %d pid=%d priority=%d running\n", i, getpid(), priorities[i]);
         }
       }
 
-      printf("Child %d pid=%d finished\n", i, getpid());
+      printf("Child %d finished pid=%d priority=%d\n", i, getpid(), priorities[i]);
       exit(0);
     }
   }
