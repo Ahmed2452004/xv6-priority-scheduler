@@ -124,7 +124,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
 p->priority = 1;
+p->wait_ticks = 0;
   p->state = USED;
+  p->priority = 60;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -273,6 +275,7 @@ kfork(void)
     return -1;
   }
   np->sz = p->sz;
+  np->priority = p->priority;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -412,6 +415,28 @@ kwait(uint64 addr)
   }
 }
 
+// Set process pid's priority. Valid range 1..100 (lower = higher priority).
+// Returns 0 on success, -1 if pid not found or priority invalid.
+int
+setpriority(int pid, int priority)
+{
+  struct proc *p;
+
+  if(priority < 1 || priority > 100)
+    return -1;
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state != UNUSED && p->pid == pid){
+      p->priority = priority;
+      release(&p->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -438,14 +463,24 @@ scheduler(void)
       acquire(&p->lock);
 
       if(p->state == RUNNABLE) {
-        if(highp == 0 || p->priority > highp->priority) {
-          if(highp != 0)
+
+    // Aging mechanism
+    p->wait_ticks++;
+
+    if(p->wait_ticks > 5 && p->priority < 10) {
+        p->priority++;
+        p->wait_ticks = 0;
+    }
+
+    if(highp == 0 || p->priority > highp->priority) {
+
+        if(highp != 0)
             release(&highp->lock);
 
-          highp = p;
-          continue;
-        }
-      }
+        highp = p;
+        continue;
+    }
+}
 
       release(&p->lock);
     }
@@ -453,6 +488,7 @@ scheduler(void)
     // Run highest priority process
     if(highp != 0) {
       highp->state = RUNNING;
+	highp->wait_ticks =0;
       c->proc = highp;
 
       swtch(&c->context, &highp->context);
