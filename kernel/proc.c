@@ -124,6 +124,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
 p->priority = 1;
+p->wait_ticks = 0;
   p->state = USED;
   p->priority = 60;
 
@@ -462,14 +463,24 @@ scheduler(void)
       acquire(&p->lock);
 
       if(p->state == RUNNABLE) {
-        if(highp == 0 || p->priority > highp->priority) {
-          if(highp != 0)
+
+    // Aging mechanism
+    p->wait_ticks++;
+
+    if(p->wait_ticks > 5 && p->priority < 10) {
+        p->priority++;
+        p->wait_ticks = 0;
+    }
+
+    if(highp == 0 || p->priority > highp->priority) {
+
+        if(highp != 0)
             release(&highp->lock);
 
-          highp = p;
-          continue;
-        }
-      }
+        highp = p;
+        continue;
+    }
+}
 
       release(&p->lock);
     }
@@ -477,6 +488,7 @@ scheduler(void)
     // Run highest priority process
     if(highp != 0) {
       highp->state = RUNNING;
+	highp->wait_ticks =0;
       c->proc = highp;
 
       swtch(&c->context, &highp->context);
