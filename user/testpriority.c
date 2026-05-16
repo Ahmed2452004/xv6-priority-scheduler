@@ -2,13 +2,25 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
+void
+busy_work(void)
+{
+  volatile unsigned long long counter = 0;
+
+  for(unsigned long long i = 0; i < 500000000ULL; i++){
+    counter++;
+  }
+}
+
 int
 main(int argc, char *argv[])
 {
   int pid;
   int priorities[5] = {1, 2, 3, 4, 5};
 
-  printf("Priority scheduler test started\n");
+  printf("\n=== Priority Scheduler Test ===\n");
+  printf("Lower number means higher priority\n");
+  printf("Each child gets a different priority and performs CPU-bound work.\n\n");
 
   for(int i = 0; i < 5; i++){
     pid = fork();
@@ -19,17 +31,15 @@ main(int argc, char *argv[])
     }
 
     if(pid == 0){
-      setpriority(getpid(), priorities[i]);
+      int priority = priorities[i];
 
-      printf("Child %d started pid=%d priority=%d\n", i, getpid(), priorities[i]);
+      setpriority(getpid(), priority);
 
-      for(volatile int j = 0; j < 100000000; j++){
-        if(j % 20000000 == 0){
-          printf("Child %d pid=%d priority=%d running\n", i, getpid(), priorities[i]);
-        }
-      }
+      printf("START  child=%d pid=%d priority=%d\n", i, getpid(), priority);
 
-      printf("Child %d finished pid=%d priority=%d\n", i, getpid(), priorities[i]);
+      busy_work();
+
+      printf("FINISH child=%d pid=%d priority=%d\n", i, getpid(), priority);
       exit(0);
     }
   }
@@ -38,6 +48,9 @@ main(int argc, char *argv[])
     wait(0);
   }
 
-  printf("Priority scheduler test finished\n");
+  printf("\n=== Test Finished ===\n");
+  printf("Expected: higher-priority children should finish earlier.\n");
+  printf("Aging/fairness should prevent low-priority children from starving.\n");
+
   exit(0);
 }
